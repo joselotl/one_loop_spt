@@ -89,35 +89,36 @@ def p13(k):
     p13 = p13*h**3
     return p13
 
+"""
+Computing one loop correciton of the matter large scale structure power spectrum.
+Several cosmological constants are defined in analyticpower.py, go there if you want to change them.
+"""
+h = 0.6790
+
+# Initializing both numerical and analyic linear powerspectrum
+# the function linearpower uses both at appropiate regions
+
+ana = analyticpower.AnalyticPower()
+tabla = np.loadtxt("./planck_linear.dat")
+ktabla = tabla[:,0]*h
+ptabla = tabla[:,1]*h**(-3)
+tck=interpolate.splrep(ktabla,ptabla,s=0)
+
+# Adjusting the limits between numerical and analytical
+qmin = ktabla[0]
+qmax = ktabla[-1]
+power_ini = ptabla[0]
+power_end = ptabla[-1]
+power_rate_ini = ptabla[0]/ana.Phs(ktabla[0])
+power_rate_end = ptabla[-1]/ana.Phs(ktabla[-1])
+
+# Computing the one-loop corrections
+p13_argument = np.vectorize(p13_argument)
+p22_argument = np.vectorize(p22_argument)
+    
 if __name__ == '__main__':
-    """
-    Computing one loop correciton of the matter large scale structure power spectrum.
-    Several cosmological constants are defined in analyticpower.py, go there if you want to change them.
-    """
-    h = 0.6790
 
-    # Initializing both numerical and analyic linear powerspectrum
-    # the function linearpower uses both at appropiate regions
-
-    ana = analyticpower.AnalyticPower()
-    tabla = np.loadtxt("./planck_linear.dat")
-    ktabla = tabla[:,0]*h
-    ptabla = tabla[:,1]*h**(-3)
-    tck=interpolate.splrep(ktabla,ptabla,s=0)
-
-    # Adjusting the limits between numerical and analytical
-    qmin = ktabla[0]
-    qmax = ktabla[-1]
-    power_ini = ptabla[0]
-    power_end = ptabla[-1]
-    power_rate_ini = ptabla[0]/ana.Phs(ktabla[0])
-    power_rate_end = ptabla[-1]/ana.Phs(ktabla[-1])
-
-    # Computing the one-loop corrections
-    p13_argument = np.vectorize(p13_argument)
-    p22_argument = np.vectorize(p22_argument)
-
-    p = Pool(8)
+    p = Pool(4)
     p22_tabla = p.map(p22,ktabla)
     p13_tabla = p.map(p13,ktabla)
 
