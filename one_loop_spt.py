@@ -43,7 +43,7 @@ def p22_argument(q,k):
     #x_bis_max = min(0.9999999,(1.+r**2-rmin**2)/(2.*r))
     # I use this limits if I trust the analytical extension of P
     x_bis_min = -1.
-    x_bis_max = 0.999999
+    x_bis_max = min(0.999999,1/(r*2))
     # We make the integral over x using the interpolated powerspectrum
     xintegral = quad(xargument,x_bis_min,x_bis_max,args=(q,k))[0]
     return xintegral
@@ -53,8 +53,7 @@ def p22(k):
     p22_arg = aux0*ptabla
     p22_integral = simps(p22_arg,ktabla)
     print 'Computing P22 for k = ',k
-    #TODO I have to check where the first factor of two comes from in the next expression
-    p22 = 1./98.*k**2/(4.*np.pi**2)*p22_integral
+    p22 = 2./98.*k**2/(4.*np.pi**2)*p22_integral
     # This last step is to put everything back in CAMB like units
     p22 = p22*h**3
     return p22
