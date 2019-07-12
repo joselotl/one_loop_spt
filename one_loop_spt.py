@@ -10,9 +10,25 @@ from scipy.integrate import dblquad
 from scipy import interpolate
 import analyticpower
 from multiprocessing import Pool
-
+import os
 # Definiendo una funcion que sea el espectro lineal
 def linearpower(q):
+    if q<0:
+        print('k negativa')
+        power = 0.
+    elif q < 10**(-5)*h or q > 10**(4)*h:
+        power = 0
+    elif q < qmin:
+        power = power_rate_ini*ana.Phs(q)
+        #power = power_ini
+    elif q> qmax:
+        #power = power_end
+        power = power_rate_end*ana.Phs(q)
+    else:
+        power = interpolate.splev(q,tck,der=0)
+    return power
+
+def linearpower2(q):
     if q<0:
         print('k negativa')
         power = 0.
@@ -76,8 +92,10 @@ def p22_argument_rel(q,k):
     #x_bis_max = min(0.9999999,(1.+r**2-rmin**2)/(2.*r))
     # I use this limits if I trust the analytical extension of P
     x_bis_min = -1.
-    x_bis_max = min(0.999999,1./(2.*r))
+    # x_bis_max = min(0.999999,1./(2.*r))
+    x_bis_max = min(1.,1./(2.*r))
     # We make the integral over x using the interpolated powerspectrum
+    # xintegral = quad(xargument_rel,x_bis_min,x_bis_max,args=(q,k))[0]
     xintegral = quad(xargument_rel,x_bis_min,x_bis_max,args=(q,k))[0]
     return xintegral
     
@@ -87,6 +105,38 @@ def p22_rel(k):
     p22_integral = simps(p22_arg,ktabla)
     print('Computing P22R for k = ',k)
     p22 = factort/(16.*np.pi**2)*p22_integral
+    # This last step is to put everything back in CAMB like units
+    p22 = p22*h**3
+    return p22
+
+
+def xargument_cross(x,q,k):
+    r = q/k
+    den = 1. + r**2 - 2.*r*x
+    factorx = (6*fnl - 10 + 25*r*(x-r))*(3.*r + 7.*x - 10.*r*x**2)/den**2
+    xargument = linearpower(k*np.sqrt(den))*factorx
+    return xargument
+
+def p22_argument_cross(q,k):
+    r = q/k
+    # The next is to integrate only over the numerical part of P
+    #rmin = qmin/k
+    #rmax = qmax/k
+    #x_bis_min = max(-1.,(1.+r**2-rmax**2)/(2.*r))
+    #x_bis_max = min(0.9999999,(1.+r**2-rmin**2)/(2.*r))
+    # I use this limits if I trust the analytical extension of P
+    x_bis_min = -1.
+    x_bis_max = min(0.999999,1./(2.*r))
+    # We make the integral over x using the interpolated powerspectrum
+    xintegral = quad(xargument_cross,x_bis_min,x_bis_max,args=(q,k))[0]
+    return xintegral
+    
+def p22_cross(k):
+    aux0 = p22_argument_cross(ktabla,k)
+    p22_arg = aux0*ptabla/ktabla
+    p22_integral = simps(p22_arg,ktabla)
+    print('Computing P22C for k = ',k)
+    p22 = k*np.sqrt(factort)/(7.*4*np.pi**2)*p22_integral
     # This last step is to put everything back in CAMB like units
     p22 = p22*h**3
     return p22
@@ -138,9 +188,9 @@ def p13_relativistic(k):
     p13_arg = aux * ptabla * ktabla**2
     second_integral = simps(p13_arg,ktabla)
     print('Computing P13R for k =', k)
-    # The decimal factor is exact 375/40, it needs to be multiplied by 2 to
+    # The decimal factor is exact 75/4, it needs to be multiplied by 2 to
     # compute the one loop
-    p13r = 9.375/(2.*np.pi)**2*linearpower(k) * second_integral * factort
+    p13r = 18.75/(2.*np.pi)**2*linearpower(k) * second_integral * factort
     # This last step is to put everything in CAMB like units
     p13r = p13r*h**3
     return p13r
@@ -151,22 +201,26 @@ Several cosmological constants are defined in analyticpower.py, go there if you 
 """
 h = 0.6790
 # factor1 corresponds to the dependence of p13 in factors of H and D+
-gnl = 0
-fnl = 0
+gnl = - 12.3e4
+fnl = - 6
 # Using H0 in units of inverse Mpc, (Not h/Mpc)
 H0 = h/2997.92458
 z=0
 omm = 1- analyticpower.Omega_lambda
 oml = analyticpower.Omega_lambda
 f1 = omm**(5/9)
-factor_hedda = (5/2/(f1 + 3/2*omm))**2
+# factor_hedda = (5/2/(f1 + 3/2*omm))**2
+factor_hedda = 1
 factort = factor_hedda * H0**4*(omm*(1+z)+oml/(1+z)**2)**2
 
 # Initializing both numerical and analyic linear powerspectrum
 # the function linearpower uses both at appropiate regions
 
 ana = analyticpower.AnalyticPower()
-tabla = np.loadtxt("./planck_linear.dat")
+# tabla = np.loadtxt("./planck_linear.dat")
+# tabla = np.loadtxt("./power1.txt")
+# tabla = np.loadtxt("./test_paperpk.dat")
+tabla = np.loadtxt('./datos_rebeca/power1.txt')
 ktabla = tabla[:,0]*h
 ptabla = tabla[:,1]*h**(-3)
 tck=interpolate.splrep(ktabla,ptabla,s=0)
@@ -183,20 +237,29 @@ power_rate_end = ptabla[-1]/ana.Phs(ktabla[-1])
 p13_argument = np.vectorize(p13_argument)
 p22_argument = np.vectorize(p22_argument)
 p22_argument_rel = np.vectorize(p22_argument_rel)
+p22_argument_cross = np.vectorize(p22_argument_cross)
 p13_relativistic_argument = np.vectorize(p13_relativistic_argument)
 
     
 if __name__ == '__main__':
 
-    p = Pool(8)
+    p = Pool(6)
     p22r_tabla = p.map(p22_rel,ktabla)
     p22_tabla = p.map(p22,ktabla)
+    p22cross_tabla = p.map(p22_cross,ktabla)
     p13_tabla = p.map(p13,ktabla)
     p13r_tabla = p.map(p13_relativistic,ktabla)
 
     # This last step is to put everything back in CAMB-like units
     ptabla = ptabla*h**3
     ktabla = ktabla/h
-    np.save('output_lcdm',[ktabla, ptabla, p22_tabla, p13_tabla, p22r_tabla, p13r_tabla])
+    files = ['pkn13.dat', 'pkn22.dat', 'pkc22.dat', 'pkr13.dat', 'pkr22.dat']
+    spectrums = [p13_tabla, p22_tabla, p22cross_tabla, p13r_tabla, p22r_tabla]
+    file_root = './range_-5_4_fnl_-6_gnl_-12.3e4/'
+    if not os.path.exists(file_root):
+        os.makedirs(file_root)
+    for i in range(len(files)):
+        np.savetxt(file_root + files[i], np.transpose([ktabla, spectrums[i]]))
+    # np.save('output_lcdm',[ktabla, ptabla, p22_tabla, p13_tabla, p22r_tabla, p22cross_tabla, p13r_tabla])
 
 
