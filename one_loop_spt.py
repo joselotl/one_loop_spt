@@ -190,7 +190,8 @@ def p13_relativistic(k):
     print('Computing P13R for k =', k)
     # The decimal factor is exact 75/4, it needs to be multiplied by 2 to
     # compute the one loop
-    p13r = 18.75/(2.*np.pi)**2*linearpower(k) * second_integral * factort
+    #p13r = 18.75/(2.*np.pi)**2*linearpower(k) * second_integral * factort
+    p13r = 81/(2.*np.pi)**2*linearpower(k) * second_integral * factort
     # This last step is to put everything in CAMB like units
     p13r = p13r*h**3
     return p13r
@@ -201,8 +202,10 @@ Several cosmological constants are defined in analyticpower.py, go there if you 
 """
 h = 0.6790
 # factor1 corresponds to the dependence of p13 in factors of H and D+
-gnl = - 12.3e4
-fnl = - 6
+#gnl = - 12.3e4
+#fnl = - 6
+gnl = 0.7e4
+fnl = 4.2
 # Using H0 in units of inverse Mpc, (Not h/Mpc)
 H0 = h/2997.92458
 z=0
@@ -243,7 +246,7 @@ p13_relativistic_argument = np.vectorize(p13_relativistic_argument)
     
 if __name__ == '__main__':
 
-    p = Pool(6)
+    p = Pool(8)
     p22r_tabla = p.map(p22_rel,ktabla)
     p22_tabla = p.map(p22,ktabla)
     p22cross_tabla = p.map(p22_cross,ktabla)
@@ -255,7 +258,8 @@ if __name__ == '__main__':
     ktabla = ktabla/h
     files = ['pkn13.dat', 'pkn22.dat', 'pkc22.dat', 'pkr13.dat', 'pkr22.dat']
     spectrums = [p13_tabla, p22_tabla, p22cross_tabla, p13r_tabla, p22r_tabla]
-    file_root = './range_-5_4_fnl_-6_gnl_-12.3e4/'
+    #file_root = './range_-5_4_fnl_-6_gnl_-12.3e4/'
+    file_root = './fnl_4.2_gnl_0.7e4/'
     if not os.path.exists(file_root):
         os.makedirs(file_root)
     for i in range(len(files)):
